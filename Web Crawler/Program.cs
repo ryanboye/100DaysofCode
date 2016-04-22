@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 
@@ -6,6 +7,9 @@ namespace Web_Crawler
 {
     class Program
     {
+        static Dictionary<string, string> targets =
+            new Dictionary<string, string>();
+
         static void Main()
         {
             var target = Console.ReadLine();
@@ -37,7 +41,7 @@ namespace Web_Crawler
                 // by calling .Result you are synchronously reading the result
                 string responseString = responseContent.ReadAsStringAsync().Result;
 
-                getLinks(responseString);
+                getLinks(responseString, target);
             }
 
             Console.BackgroundColor = ConsoleColor.Blue;
@@ -48,21 +52,27 @@ namespace Web_Crawler
             Main();
         }
 
-        static void getLinks(string body)
+        static void getLinks(string body, string target)
         {
             
-            Regex rx= new Regex("@(?=href=\"([^\"]*)\")[^>]*>([^<]*)<\\/a>",
-                RegexOptions.Compiled | RegexOptions.IgnoreCase);
+            Regex rx= new Regex("(?=href=\"([^ \"]*)\")[^>]*>[^<]*<\\/a>",
+                RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace);
 
             MatchCollection matches = rx.Matches(body);
 
             foreach (Match match in matches)
             {
-                GroupCollection groups = match.Groups;
-                Console.WriteLine("'{0}' repeated at positions {1} and {2}",
-                                  groups["word"].Value,
-                                  groups[0].Index,
-                                  groups[1].Index);
+                string newTarget = target + match.Groups[1].Value;
+               
+                try
+                {
+                    targets.Add(newTarget, newTarget);  //yea I'm sorry
+                    RequestSite(newTarget);
+                }
+                catch (ArgumentException)
+                {
+                    Console.WriteLine("An element with Key = {0} already exists.", newTarget);
+                }
             }
         }
     }
