@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace Web_Crawler
 {
@@ -9,14 +10,15 @@ namespace Web_Crawler
     {
         static Dictionary<string, string> targets = new Dictionary<string, string>();
         static Dictionary<string, string> history = new Dictionary<string, string>();
-        private static readonly Regex slash_re = new Regex("/\\/{ 2,}",
+        private static readonly Regex slash_re = new Regex("/\\/{2,}",
                 RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace);
         private static readonly Regex re = new Regex("<a.*?href=\"(.*?)\"",
                 RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace);
 
     static void Main()
         {
-            // var target = Console.ReadLine();
+            
+            //var target = Console.ReadLine();
             var target = "http://leftronic.com";
 
             if (target.IndexOf("http://") != -1)
@@ -31,20 +33,32 @@ namespace Web_Crawler
 
                 Main();
             }
+            Console.ReadLine();
         }
 
-        static void RequestSite(string target)
+    static async void RequestSite(string target)
         {
-            var client = new HttpClient();
-            var response = client.GetAsync(target).Result;
+            HttpClient client = new HttpClient();
+            Task<HttpResponseMessage> response_contents = client.GetAsync(target);
 
             Console.BackgroundColor = ConsoleColor.Blue;
             Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine("Scanning: " + target);
+            Console.Write("Scanning:");
             Console.ResetColor();
+            Console.Write(" " + target + "\n");
+
+            HttpResponseMessage response = await response_contents;
 
             if (response.IsSuccessStatusCode)
             {
+                try
+                {
+                    history.Add(target, "true");
+                }
+                catch (ArgumentException)
+                {
+                    Console.WriteLine("An element with Key = {0} already exists.", target);
+                }
                 // by calling .Result you are performing a synchronous call
                 var responseContent = response.Content;
 
@@ -53,12 +67,9 @@ namespace Web_Crawler
 
                 getLinks(responseString, target);
             }
-
-            //Main();
-            Console.ReadLine();
         }
 
-        static void getLinks(string body, string target)
+    static void getLinks(string body, string target)
         {
             MatchCollection matches = re.Matches(body);
 
@@ -66,49 +77,55 @@ namespace Web_Crawler
             {
                 string current_match = match.Groups[1].Value;
                 string newTarget = target + current_match;
-                Console.WriteLine("Match" + current_match);
+                // Console.WriteLine("Match" + current_match);
 
                 char first_letter = current_match[0];
 
                 //Internal site match
                 if (first_letter == '/')
                 {
-                    var newTarget = 'http://' + (target + match).replace('http://', '').replace(slash_re, '/');
-                    // console.log((target + match).green);
-                    // console.log(history);
-                    if (history[newTarget] == null)
+                    newTarget = "http://" + slash_re.Replace((target + current_match).Replace("http://", ""), "/");
+ 
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    //Console.WriteLine(newTarget);
+                    Console.ResetColor();
+                     
+                    if (!history.ContainsKey(newTarget))
                     {
-                        console.log('NEW: '.green + (newTarget));
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("NEW: " + (newTarget));
+                        Console.ResetColor();
+                        RequestSite(newTarget);
                     }
-                    else if (history[newTarget] == 1)
+                    else if (history.ContainsKey(newTarget))
                     {
-                        console.log('EXISTS: '.yellow + (newTarget));
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine("EXISTS: " + (newTarget));
+                        Console.ResetColor();
                     }
-                    if (history[newTarget] == null)
-                    {
-                        getSite(newTarget);
-                    }
+                   
                 }
 
                 // external site yeeee
-                if (match.indexOf('http://') == '0')
+                if (current_match.IndexOf("http://") == '0')
                 {
-                    var newTarget = match;
-                    if (history[newTarget] == null)
+                    newTarget = current_match;
+                    if (history.ContainsKey(newTarget))
                     {
-                        console.log('NEW: '.green + (newTarget));
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("NEW: " + (newTarget));
+                        Console.ResetColor();
+                        RequestSite(newTarget);
                     }
-                    else if (history[newTarget] == 1)
+                    else if (history.ContainsKey(newTarget))
                     {
-                        console.log('EXISTS: '.yellow + (newTarget));
-                    }
-                    if (history[newTarget] == null)
-                    {
-                        getSite(newTarget);
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine("EXISTS: " + (newTarget));
+                        Console.ResetColor();
                     }
                 }
             }
-            Console.ReadLine();
+        
         }
     }
 }
