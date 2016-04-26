@@ -10,14 +10,14 @@ namespace Web_Crawler
     {
         static Dictionary<string, string> targets = new Dictionary<string, string>();
         static Dictionary<string, string> history = new Dictionary<string, string>();
-        private static readonly Regex slash_re = new Regex("/\\/{2,}",
+        private static readonly Regex slash_re = new Regex("/{2,}",
                 RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace);
         private static readonly Regex re = new Regex("<a.*?href=\"(.*?)\"",
                 RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace);
 
-    static void Main()
+        static void Main()
         {
-            
+
             //var target = Console.ReadLine();
             var target = "http://leftronic.com";
 
@@ -36,7 +36,7 @@ namespace Web_Crawler
             Console.ReadLine();
         }
 
-    static async void RequestSite(string target)
+        static async void RequestSite(string target)
         {
             HttpClient client = new HttpClient();
             Task<HttpResponseMessage> response_contents = client.GetAsync(target);
@@ -69,63 +69,71 @@ namespace Web_Crawler
             }
         }
 
-    static void getLinks(string body, string target)
+        static void getLinks(string body, string target)
         {
             MatchCollection matches = re.Matches(body);
 
-            foreach (Match match in matches)
+            if(matches.Count > 0)
             {
-                string current_match = match.Groups[1].Value;
-                string newTarget = target + current_match;
-                // Console.WriteLine("Match" + current_match);
-
-                char first_letter = current_match[0];
-
-                //Internal site match
-                if (first_letter == '/')
+                foreach (Match match in matches)
                 {
-                    newTarget = "http://" + slash_re.Replace((target + current_match).Replace("http://", ""), "/");
- 
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    //Console.WriteLine(newTarget);
-                    Console.ResetColor();
-                     
-                    if (!history.ContainsKey(newTarget))
-                    {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("NEW: " + (newTarget));
-                        Console.ResetColor();
-                        RequestSite(newTarget);
-                    }
-                    else if (history.ContainsKey(newTarget))
-                    {
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine("EXISTS: " + (newTarget));
-                        Console.ResetColor();
-                    }
-                   
-                }
+                    var test = matches;
+                    string current_match = "";  
+                    current_match = match.Groups[1].Value;                   
 
-                // external site yeeee
-                if (current_match.IndexOf("http://") == '0')
-                {
-                    newTarget = current_match;
-                    if (history.ContainsKey(newTarget))
+                    string newTarget = target + current_match;
+                    //Console.WriteLine(match.Groups);
+
+   
+
+                    ////Internal site match
+                    //if (first_letter == '/')
+                    //{
+                    //    newTarget = "http://" + slash_re.Replace((target + current_match).Replace("http://", ""), "/");
+
+                    //    Console.ForegroundColor = ConsoleColor.Green;
+                    //    //Console.WriteLine(newTarget);
+                    //    Console.ResetColor();
+
+                    //    if (!history.ContainsKey(newTarget))
+                    //    {
+                    //        Console.ForegroundColor = ConsoleColor.Green;
+                    //        Console.WriteLine("NEW: " + (newTarget));
+                    //        Console.ResetColor();
+                    //        RequestSite(newTarget);
+                    //    }
+                    //    else if (history.ContainsKey(newTarget))
+                    //    {
+                    //        Console.ForegroundColor = ConsoleColor.Yellow;
+                    //        Console.WriteLine("EXISTS: " + (newTarget));
+                    //        Console.ResetColor();
+                    //    }
+
+                    //}
+
+                    // external site 
+
+                    if (current_match.IndexOf("http") == 0)
                     {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("NEW: " + (newTarget));
-                        Console.ResetColor();
-                        RequestSite(newTarget);
-                    }
-                    else if (history.ContainsKey(newTarget))
-                    {
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine("EXISTS: " + (newTarget));
-                        Console.ResetColor();
+                        newTarget = current_match;
+                        if (!history.ContainsKey(newTarget))
+                        {
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.WriteLine("NEW EXTERNAL: " + (newTarget));
+                            Console.ResetColor();
+                            RequestSite(newTarget);
+                        }
+                        else if (history.ContainsKey(newTarget))
+                        {
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine("EXISTING EXTERNAL: " + (newTarget));
+                            Console.ResetColor();
+                        }
                     }
                 }
             }
-        
+            
+
         }
     }
 }
