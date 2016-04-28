@@ -14,10 +14,11 @@ namespace Web_Crawler
                 RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace);
         private static readonly Regex re = new Regex("<a.*?href=\"(.*?)\"",
                 RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace);
+        private static CrawlLogger crawllogger;
 
         static void Main()
         {
-
+            crawllogger = new CrawlLogger("../../crawler-log.txt");
             //var target = Console.ReadLine();
             var target = "http://leftronic.com";
 
@@ -48,6 +49,9 @@ namespace Web_Crawler
             Console.Write(" " + target + "\n");
 
             HttpResponseMessage response = await response_contents;
+            crawllogger.AddLog(target);
+            
+
 
             if (response.IsSuccessStatusCode)
             {
@@ -73,18 +77,18 @@ namespace Web_Crawler
         {
             MatchCollection matches = re.Matches(body);
 
-            if(matches.Count > 0)
+            if (matches.Count > 0)
             {
                 foreach (Match match in matches)
                 {
                     var test = matches;
-                    string current_match = "";  
-                    current_match = match.Groups[1].Value;                   
+                    string current_match = "";
+                    current_match = match.Groups[1].Value;
 
                     string newTarget = target + current_match;
                     //Console.WriteLine(match.Groups);
 
-   
+
 
                     ////Internal site match
                     //if (first_letter == '/')
@@ -132,7 +136,7 @@ namespace Web_Crawler
                     }
                 }
             }
-            
+
 
         }
     }
