@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -15,22 +16,23 @@ namespace Web_Crawler
         private static readonly Regex re = new Regex("<a.*?href=\"(.*?)\"",
                 RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace);
         private static CrawlLogger crawllogger;
-        private static string target = "http://leftronic.com";
 
         private static Stack<string> _urls = new Stack<string>();
-        private static int _maxConcurrency = 20;
+        private static int _maxConcurrency = 200;
         private static int taskCount;
         private static List<Task<string>> _tasks = new List<Task<string>>();
 
         static void Main()
         {
+            var target = "http://leftronic.com";
             taskCount = 0;
-            crawllogger = new CrawlLogger("../../crawler-log.txt");
+            crawllogger = new CrawlLogger("crawlerlogger-log.txt");
             
 
             if (target.IndexOf("http://") != -1)
             {
                 crawl(target);
+                Console.ReadLine();
             }
             else
             {
@@ -44,72 +46,92 @@ namespace Web_Crawler
 
         static async void crawl(string target)
         {
+            
             _urls.Push(target);
-            var key = Console.ReadKey().Key;
-            while (key != ConsoleKey.Q)
+            while (_urls.Count > 0)
             {
-                while (_urls.Count > 0)
+                while (taskCount < _maxConcurrency && _urls.Count > 0)
                 {
-                    while (taskCount < _maxConcurrency && _urls.Count > 0)
-                    {
-                        _tasks.Add(RequestSite(_urls.Pop()));
-                    }
-
-                    Task<string> t = await Task.WhenAny(_tasks);
-                    string result = await t;
-                    getLinks(result);
+                    _tasks.Add(RequestSite(_urls.Pop()));
                 }
+
+                Task<string> t = await Task.WhenAny(_tasks);
+                string result = await t;
+                getLinks(result, target);                
             }
-            Environment.Exit(0);
+
+            //var key = Console.ReadKey().Key;
+            //while (key != ConsoleKey.Q)
+            //{
+            //    Console.WriteLine("Main loop");
+            //    while (_urls.Count > 0)
+            //    {
+            //        while (taskCount < _maxConcurrency && _urls.Count > 0)
+            //        {
+            //            _tasks.Add(RequestSite(_urls.Pop()));
+            //        }
+
+            //        Task<string> t = await Task.WhenAny(_tasks);
+            //        string result = await t;
+            //        getLinks(result);
+            //        key = Console.ReadKey().Key;
+            //    }
+            //}
+            //Environment.Exit(0);
         }
 
 
         static async Task<string> RequestSite(string target)
         {
-            HttpClient client = new HttpClient();
-            Task<HttpResponseMessage> response_contents = client.GetAsync(target);
-
-            Console.BackgroundColor = ConsoleColor.Blue;
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.Write("Scanning:");
-            Console.ResetColor();
-            Console.Write(" " + target + "\n");
-            taskCount++;
-            HttpResponseMessage response = await response_contents;
-            crawllogger.AddLog(target);
-            taskCount--;
             string responseString = "";
-
             try
             {
-                if (response.IsSuccessStatusCode)
+                history.Add(target, "true");
+                HttpClient client = new HttpClient();
+                Task<HttpResponseMessage> response_contents = client.GetAsync(target);
+
+                Console.BackgroundColor = ConsoleColor.Blue;
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write("Scanning:");
+                Console.ResetColor();
+                Console.Write(" " + target + "\n");
+                taskCount++;
+                HttpResponseMessage response = await response_contents;
+                crawllogger.AddLog(target);
+                taskCount--;
+
+                try
                 {
-                    try
+                    if (response.IsSuccessStatusCode)
                     {
-                        history.Add(target, "true");
-                    }
-                    catch (ArgumentException)
-                    {
-                        Console.WriteLine("An element with Key = {0} already exists.", target);
-                    }
-                    // by calling .Result you are performing a synchronous call
-                    var responseContent = response.Content;
+                        // by calling .Result you are performing a synchronous call
+                        var responseContent = response.Content;
 
-                    // by calling .Result you are synchronously reading the result
-                    responseString = responseContent.ReadAsStringAsync().Result;
+                        // by calling .Result you are synchronously reading the result
+                        responseString = responseContent.ReadAsStringAsync().Result;
 
+                    }
+                }
+                catch (Exception ex)
+                {
+                    responseString = "";
                 }
             }
-            catch(Exception ex)
+            catch (ArgumentException)
             {
+                Console.WriteLine("An element with Key = {0} already exists.", target);
                 responseString = "";
             }
+           
+       
+           
 
+            getLinks(responseString, target);
             return responseString;
            
         }
 
-        static void getLinks(string body)
+        static void getLinks(string body, string target)
         {
             MatchCollection matches = re.Matches(body);
 
@@ -127,7 +149,7 @@ namespace Web_Crawler
 
 
                    // Internal site match
-                    if (current_match.IndexOf("/") == 0)
+                    if (current_match.FirstOrDefault() == '/')
                     {
                         newTarget = "http://" + slash_re.Replace((target + current_match).Replace("http://", ""), "/");
 
@@ -138,14 +160,14 @@ namespace Web_Crawler
                         if (!history.ContainsKey(newTarget))
                         {
                             Console.ForegroundColor = ConsoleColor.Green;
-                            Console.WriteLine("NEW: " + (newTarget));
+                            //Console.WriteLine("NEW: " + (newTarget));
                             Console.ResetColor();
                             _urls.Push(newTarget);
                         }
                         else if (history.ContainsKey(newTarget))
                         {
                             Console.ForegroundColor = ConsoleColor.Yellow;
-                            Console.WriteLine("EXISTS: " + (newTarget));
+                            //Console.WriteLine("EXISTS: " + (newTarget));
                             Console.ResetColor();
                         }
 
@@ -153,27 +175,25 @@ namespace Web_Crawler
 
                     //external site
 
-                    if (current_match.IndexOf("http") == 0)
+                    if (current_match.IndexOf("http") == 0 || current_match.IndexOf("https") == 0)
                     {
                         newTarget = current_match;
                         if (!history.ContainsKey(newTarget))
                         {
                             Console.ForegroundColor = ConsoleColor.Green;
-                            Console.WriteLine("NEW EXTERNAL: " + (newTarget));
+                            //Console.WriteLine("NEW EXTERNAL: " + (newTarget));
                             Console.ResetColor();
                             _urls.Push(newTarget);
                         }
                         else if (history.ContainsKey(newTarget))
                         {
                             Console.ForegroundColor = ConsoleColor.Yellow;
-                            Console.WriteLine("EXISTING EXTERNAL: " + (newTarget));
+                            //Console.WriteLine("EXISTING EXTERNAL: " + (newTarget));
                             Console.ResetColor();
                         }
                     }
                 }
             }
-
-
         }
     }
 }
