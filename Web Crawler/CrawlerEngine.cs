@@ -13,28 +13,15 @@ namespace Web_Crawler
         public static Dictionary<string, string> targets = new Dictionary<string, string>();
         public static Dictionary<string, string> history = new Dictionary<string, string>();
 
-        private static CrawlLogger crawllogger;
-        public static Stack<string> _urls = new Stack<string>();
-        public static int taskCount;
+        private CrawlLogger crawllogger;
+        public Stack<string> _urls = new Stack<string>();
+        public long numCrawled;
+        public int taskCount;
         private static List<Task<string>> _tasks = new List<Task<string>>();
         private int _maxConcurrency;
 
-        private static Stack<string> messageQueue = new Stack<string>();
-        public Stack<string> MessageQueue
-        {
-            get
-            {
-                return messageQueue;
-            }
-        }
-        private static string _lastCrawled;
-        public string last_crawled
-        {
-            get
-            {
-                return _lastCrawled;
-            }
-        }
+        public Stack<string> MessageQueue = new Stack<string>();
+        public string last_crawled;
 
         public int MaxConcurrency
         {
@@ -50,11 +37,14 @@ namespace Web_Crawler
         }
         public int TaskCount { get; set; }
         
-        public CrawlerEngine(int maxConcurrency = 20)
+        public CrawlerEngine(int maxConcurrency = 200)
         {
+            ServicePointManager.DefaultConnectionLimit = maxConcurrency;
+            System.Net.ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
             MaxConcurrency = maxConcurrency;
             crawllogger = new CrawlLogger("crawlerlogger-log.txt");
             taskCount = 0;
+            numCrawled = 0;
         }
 
         public async Task<int> crawl(string target)
@@ -82,22 +72,22 @@ namespace Web_Crawler
         }
 
 
-        static async Task<string> RequestSite(string target)
+        private async Task<string> RequestSite(string target)
         {
             string responseString = "";
+            history.Add(target, "true");
+            HttpClient client = new HttpClient();
             try
-            {
-                history.Add(target, "true");
-                HttpClient client = new HttpClient();
+            {      
                 Task<HttpResponseMessage> response_contents = client.GetAsync(target);
-
                 // Console.BackgroundColor = ConsoleColor.Blue;
                 // Console.ForegroundColor = ConsoleColor.White;
                 // Console.ResetColor();
-                messageQueue.Push("Scanning:" + target + "\n");
+                MessageQueue.Push(target);
                 taskCount++;
                 HttpResponseMessage response = await response_contents;
                 crawllogger.AddLog(target);
+                numCrawled++;
                 taskCount--;
 
                 try
@@ -108,15 +98,17 @@ namespace Web_Crawler
                         responseString = responseContent.ReadAsStringAsync().Result;
                     }
                 }
-                catch (Exception ex)
+                catch (ArgumentException)
                 {
                     responseString = "";
                 }
             }
-            catch (ArgumentException)
+            catch (Exception ex)
             {
-                messageQueue.Push("An element with Key = " + target + " already exists.");
+                MessageQueue.Push("An element with Key = " + target + " already exists.");
                 responseString = "";
+                System.Diagnostics.Debug.WriteLine("CAUGHT EXCEPTION:");
+                System.Diagnostics.Debug.WriteLine(ex);
             }
 
             getLinks(responseString, target);
@@ -124,9 +116,10 @@ namespace Web_Crawler
 
         }
 
-        static void getLinks(string body, string target)
+        private void getLinks(string body, string target)
         {
-            _lastCrawled = target;
+            last_crawled = target;
+            
             Regex slash_re = new Regex("/{2,}",
                 RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace);
             Regex re = new Regex("<a.*?href=\"(.*?)\"",

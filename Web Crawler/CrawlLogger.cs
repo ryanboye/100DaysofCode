@@ -18,8 +18,14 @@ namespace Web_Crawler
                     while (true)
                     {
                         var text = _collection.Take();
-                        file.WriteLine(text);
-                        file.Flush();
+                        try {
+                            file.WriteLine(text);
+                            file.Flush();
+                        }
+                    catch(Exception e)
+                        {
+                            Console.WriteLine(e);
+                        }                        
                     }
                 }
 
