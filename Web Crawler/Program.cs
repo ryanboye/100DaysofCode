@@ -8,11 +8,17 @@ namespace Web_Crawler
     public class Program
     {
         private static CrawlerEngine crawler_engine = new CrawlerEngine(200);
+        private static DummyServer _server;
 
         static void Main(string[] args)
         {
+            _server = new DummyServer(9090);
+
+            
+
+
             // Give it a starting target
-            var target = args.Length > 0 ? args[0] : "http://reddit.com";
+            var target = args.Length > 0 ? args[0] : "http://localhost:9090";
             // Tee up some tasks
             var mainTasks = new List<Task>();
             var crawlTask = crawler_engine.crawl(target);
@@ -43,6 +49,7 @@ namespace Web_Crawler
                     }
                     key = Console.ReadKey().Key;
                 }
+                _server.Stop();
                 Environment.Exit(0);
             });
         }
