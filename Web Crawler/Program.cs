@@ -1,72 +1,80 @@
 ﻿using System;
-using System.Net.Http;
-using System.Text.RegularExpressions;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Web_Crawler
 {
-    class Program
+    public class Program
     {
-        static void Main()
+        private static CrawlerEngine crawler_engine = new CrawlerEngine(200);
+
+        static void Main(string[] args)
         {
-            var target = Console.ReadLine();
-
-            if (target.IndexOf("http://") != -1)
-            {
-                RequestSite(target);
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Please enter a valid URL");
-                Console.ResetColor();
-
-                Main();
-            }
+            // Give it a starting target
+            var target = args.Length > 0 ? args[0] : "http://reddit.com";
+            // Tee up some tasks
+            var mainTasks = new List<Task>();
+            var crawlTask = crawler_engine.crawl(target);
+            var inputTask = InputAsync();
+            var consoleTask = ConsoleAsync();
+            mainTasks.Add(crawlTask);
+            mainTasks.Add(inputTask);
+            mainTasks.Add(consoleTask);
+            // Kick em off
+            Task.WaitAll(mainTasks.ToArray());
         }
 
-        static void RequestSite(string target)
+        private static async Task InputAsync()
         {
-            var client = new HttpClient();
-            var response = client.GetAsync(target).Result;
-
-            if (response.IsSuccessStatusCode)
+            await Task.Factory.StartNew(() =>
             {
-                // by calling .Result you are performing a synchronous call
-                var responseContent = response.Content;
 
-                // by calling .Result you are synchronously reading the result
-                string responseString = responseContent.ReadAsStringAsync().Result;
-
-                getLinks(responseString);
-            }
-
-            Console.BackgroundColor = ConsoleColor.Blue;
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine("Scanning: " + target);
-            Console.ResetColor();
-          
-            Main();
+                var key = Console.ReadKey().Key;
+                while (key != ConsoleKey.Q)
+                {
+                    if (key == ConsoleKey.RightArrow)
+                    {
+                        crawler_engine.MaxConcurrency += 20;
+                    }
+                    else if (key == ConsoleKey.LeftArrow)
+                    {
+                        crawler_engine.MaxConcurrency -= 20;
+                    }
+                    key = Console.ReadKey().Key;
+                }
+                Environment.Exit(0);
+            });
         }
 
-        static void getLinks(string body)
+        private static async Task ConsoleAsync()
         {
-            
-            Regex rx= new Regex("@(?=href=\"([^\"]*)\")[^>]*>([^<]*)<\\/a>",
-                RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-            MatchCollection matches = rx.Matches(body);
-
-            foreach (Match match in matches)
+            Console.Clear();
+            while (true)
             {
-                GroupCollection groups = match.Groups;
-                Console.WriteLine("'{0}' repeated at positions {1} and {2}",
-                                  groups["word"].Value,
-                                  groups[0].Index,
-                                  groups[1].Index);
+                Console.Clear();
+                Console.SetCursorPosition(0, 0);
+                Console.WriteLine("Max Threads " + crawler_engine.MaxConcurrency);
+                Console.WriteLine("Queued " + crawler_engine._urls.Count);
+                Console.WriteLine("Crawled " + crawler_engine.numCrawled);
+                Console.WriteLine("Tasks Queued " + crawler_engine.TaskCount);
+               
+                Console.WriteLine("-----------------------------------------------------------" + "\n\n");
+
+                for (int i = 0; i < 30; i++)
+                {
+                    if (crawler_engine.MessageQueue.Count > 0)
+                    {
+                        var message = crawler_engine.MessageQueue.Pop();
+                        if(message.Length > 50)
+                        {
+                            message = message.Substring(0, 49) + "...";
+                        }
+                        Console.WriteLine(message);
+                    }                    
+                }
+                await Task.Delay(TimeSpan.FromMilliseconds(500));
             }
         }
     }
 }
-
-
-
