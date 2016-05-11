@@ -11,7 +11,9 @@ namespace Web_Crawler
 
         static void Main(string[] args)
         {
+            // Give it a starting target
             var target = args.Length > 0 ? args[0] : "http://reddit.com";
+            // Tee up some tasks
             var mainTasks = new List<Task>();
             var crawlTask = crawler_engine.crawl(target);
             var inputTask = InputAsync();
@@ -19,6 +21,7 @@ namespace Web_Crawler
             mainTasks.Add(crawlTask);
             mainTasks.Add(inputTask);
             mainTasks.Add(consoleTask);
+            // Kick em off
             Task.WaitAll(mainTasks.ToArray());
         }
 
@@ -36,7 +39,7 @@ namespace Web_Crawler
                     }
                     else if (key == ConsoleKey.LeftArrow)
                     {
-                        crawler_engine.MaxConcurrency += 20;
+                        crawler_engine.MaxConcurrency -= 20;
                     }
                     key = Console.ReadKey().Key;
                 }
@@ -50,9 +53,6 @@ namespace Web_Crawler
             while (true)
             {
                 Console.Clear();
-                //var lastCrawled = crawler_engine.last_crawled.Length > 50 ? crawler_engine.last_crawled : crawler_engine.last_crawled.Substring(0, 49);
-                var lastCrawled = crawler_engine.last_crawled;
-
                 Console.SetCursorPosition(0, 0);
                 Console.WriteLine("Max Threads " + crawler_engine.MaxConcurrency);
                 Console.WriteLine("Queued " + crawler_engine._urls.Count);
@@ -61,11 +61,18 @@ namespace Web_Crawler
                
                 Console.WriteLine("-----------------------------------------------------------" + "\n\n");
 
-                //while (crawler_engine.MessageQueue.Count > 0)
-                //{
-                //    var message = crawler_engine.MessageQueue.Pop();
-                //    Console.WriteLine(message);
-                //}
+                for (int i = 0; i < 30; i++)
+                {
+                    if (crawler_engine.MessageQueue.Count > 0)
+                    {
+                        var message = crawler_engine.MessageQueue.Pop();
+                        if(message.Length > 50)
+                        {
+                            message = message.Substring(0, 49) + "...";
+                        }
+                        Console.WriteLine(message);
+                    }                    
+                }
                 await Task.Delay(TimeSpan.FromMilliseconds(500));
             }
         }

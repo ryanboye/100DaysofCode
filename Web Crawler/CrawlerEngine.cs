@@ -49,7 +49,6 @@ namespace Web_Crawler
 
         public async Task<int> crawl(string target)
         {
-
             _urls.Push(target);
             while (_urls.Count > 0 || _tasks.Count > 0)
             {
@@ -67,7 +66,6 @@ namespace Web_Crawler
                     _tasks.Remove(task);
                 }
             }
-
             return history.Count();
         }
 
@@ -113,80 +111,59 @@ namespace Web_Crawler
 
             getLinks(responseString, target);
             return responseString;
-
         }
 
-        private void getLinks(string body, string target)
+        private MatchCollection getLinks(string body, string target)
         {
             last_crawled = target;
-            
-            Regex slash_re = new Regex("/{2,}",
-                RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace);
             Regex re = new Regex("<a.*?href=\"(.*?)\"",
                     RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace);
 
             MatchCollection matches = re.Matches(body);
+            parseLinks(matches, target);
+            return matches;
+        }
 
+        private void parseLinks(MatchCollection matches, string target)
+        {
+            Regex slash_re = new Regex("/{2,}",
+                RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace);
             if (matches.Count > 0)
             {
                 foreach (Match match in matches)
                 {
-                    var test = matches;
-                    string current_match = "";
+                    string current_match;
+                    string newTarget;
                     current_match = match.Groups[1].Value;
-
-                    string newTarget = target + current_match;
-                    //messageQueue.Push(match.Groups);
-
-
 
                     // Internal site match
                     if (current_match.FirstOrDefault() == '/')
                     {
                         newTarget = "http://" + slash_re.Replace((target + current_match).Replace("http://", ""), "/");
-
-                        // Console.ForegroundColor = ConsoleColor.Green;
-                        //messageQueue.Push(newTarget);
-                        // Console.ResetColor();
+                        MessageQueue.Push(newTarget);   
 
                         if (!history.ContainsKey(newTarget))
                         {
-                            // Console.ForegroundColor = ConsoleColor.Green;
-                            //messageQueue.Push("NEW: " + (newTarget));
-                            // Console.ResetColor();
+                            //MessageQueue.Push("NEW: " + (newTarget));
                             _urls.Push(newTarget);
                         }
-                        else if (history.ContainsKey(newTarget))
-                        {
-                            // Console.ForegroundColor = ConsoleColor.Yellow;
-                            //messageQueue.Push("EXISTS: " + (newTarget));
-                            // Console.ResetColor();
-                        }
-
                     }
 
                     //external site
-
                     if (current_match.IndexOf("http") == 0 || current_match.IndexOf("https") == 0)
                     {
                         newTarget = current_match;
                         if (!history.ContainsKey(newTarget))
                         {
-                            // Console.ForegroundColor = ConsoleColor.Green;
-                            //messageQueue.Push("NEW EXTERNAL: " + (newTarget));
-                            // Console.ResetColor();
+                            //MessageQueue.Push("NEW EXTERNAL: " + (newTarget));
                             _urls.Push(newTarget);
-                        }
-                        else if (history.ContainsKey(newTarget))
-                        {
-                            // Console.ForegroundColor = ConsoleColor.Yellow;
-                            //messageQueue.Push("EXISTING EXTERNAL: " + (newTarget));
-                            // Console.ResetColor();
                         }
                     }
                 }
             }
         }
+
+
     }
 }
 
